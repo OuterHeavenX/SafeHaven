@@ -1,10 +1,15 @@
-const root = document.querySelector<HTMLDivElement>('#app-ui');
-const canvas = document.querySelector<HTMLCanvasElement>('#game-canvas');
+const rootElement = document.querySelector<HTMLDivElement>('#app-ui');
+const canvasElement = document.querySelector<HTMLCanvasElement>('#game-canvas');
 const fatal = document.querySelector<HTMLElement>('#fatal-error');
 
-if (!root || !canvas) {
+if (!rootElement || !canvasElement) {
   throw new Error('SafeHaven launcher could not find its required page elements.');
 }
+
+// Capture non-null references after the startup guard so strict TypeScript
+// can safely use them inside callbacks and async launch code.
+const root: HTMLDivElement = rootElement;
+const canvas: HTMLCanvasElement = canvasElement;
 
 canvas.style.visibility = 'hidden';
 
