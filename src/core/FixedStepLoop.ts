@@ -1,0 +1,1 @@
+export class FixedStepLoop{private acc=0;constructor(private readonly step=1/20,private readonly maxCatchup=.25){}update(dt:number,fn:(dt:number)=>void){this.acc+=Math.min(dt,this.maxCatchup);while(this.acc>=this.step){fn(this.step);this.acc-=this.step}}reset(){this.acc=0}}

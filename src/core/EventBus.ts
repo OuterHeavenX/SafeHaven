@@ -1,0 +1,1 @@
+export class EventBus<T extends Record<string,unknown>>{private m=new Map<keyof T,Set<(v:any)=>void>>();on<K extends keyof T>(k:K,f:(v:T[K])=>void){const s=this.m.get(k)??new Set();s.add(f as any);this.m.set(k,s);return()=>s.delete(f as any)}emit<K extends keyof T>(k:K,v:T[K]){this.m.get(k)?.forEach(f=>f(v))}clear(){this.m.clear()}}

@@ -1,0 +1,1 @@
+export class Random{constructor(public state=0x12345678){}next(){let x=this.state|0;x^=x<<13;x^=x>>>17;x^=x<<5;this.state=x|0;return (x>>>0)/4294967296}range(a:number,b:number){return a+(b-a)*this.next()}}
