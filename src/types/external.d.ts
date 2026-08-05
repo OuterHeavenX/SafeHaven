@@ -9,4 +9,3 @@ declare module 'playcanvas' {
   export const StandardMaterial: any;
   export const Color: any;
 }
-declare module 'vite' { export function defineConfig(config: unknown): any; }
