@@ -2,7 +2,9 @@ name: Deploy SafeHaven to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - agent/direct-browser-no-vite
   workflow_dispatch:
 
 permissions:
@@ -31,6 +33,13 @@ jobs:
 
       - name: Build SafeHaven
         run: npm run build
+
+      - name: Verify static boot files
+        run: |
+          test -f dist/index.html
+          test -f dist/js/main.js
+          test -f dist/vendor/playcanvas/playcanvas.mjs
+          grep -q "SAFEHAVEN" dist/index.html
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
