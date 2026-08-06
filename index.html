@@ -6,13 +6,6 @@
   <meta name="theme-color" content="#09070b" />
   <title>SafeHaven — The Fallen Valley</title>
   <link rel="stylesheet" href="./styles/global.css" />
-  <script type="importmap">
-  {
-    "imports": {
-      "playcanvas": "./vendor/playcanvas/playcanvas.mjs"
-    }
-  }
-  </script>
 </head>
 <body>
   <div id="boot-shell" role="status" aria-live="polite">
@@ -26,27 +19,68 @@
   <canvas id="game-canvas"></canvas>
   <div id="app-ui"></div>
   <div id="fatal-error" hidden></div>
-  <script type="module" src="./js/main.js"></script>
+
   <script>
-    window.addEventListener('error', function (event) {
+    (function () {
       const shell = document.getElementById('boot-shell');
       const status = document.getElementById('boot-status');
       const diagnostics = document.getElementById('boot-diagnostics');
-      if (!shell || shell.hidden) return;
-      status.textContent = 'SAFEHAVEN FAILED TO INITIALIZE';
-      diagnostics.hidden = false;
-      diagnostics.textContent = String(event.error && event.error.stack || event.message || 'Unknown startup error');
-    });
-    window.addEventListener('unhandledrejection', function (event) {
-      const shell = document.getElementById('boot-shell');
-      const status = document.getElementById('boot-status');
-      const diagnostics = document.getElementById('boot-diagnostics');
-      if (!shell || shell.hidden) return;
-      status.textContent = 'SAFEHAVEN FAILED TO INITIALIZE';
-      diagnostics.hidden = false;
-      const reason = event.reason;
-      diagnostics.textContent = String(reason && reason.stack || reason || 'Unhandled startup rejection');
-    });
+      const app = document.getElementById('app-ui');
+
+      function showError(message) {
+        if (status) status.textContent = 'SAFEHAVEN FAILED TO INITIALIZE';
+        if (diagnostics) {
+          diagnostics.hidden = false;
+          diagnostics.textContent = message;
+        }
+        if (shell) shell.hidden = false;
+      }
+
+      function showFallbackTitle() {
+        if (shell) shell.hidden = true;
+        if (!app) return;
+        app.innerHTML = `
+          <div class="title-screen">
+            <div class="moon"></div>
+            <div class="fog f1"></div>
+            <div class="fog f2"></div>
+            <section class="title-card">
+              <div class="kicker">ORDER OF THE HAVEN ARCHIVES</div>
+              <h1>SAFEHAVEN</h1>
+              <p>The darkness has found us.</p>
+              <button id="boot-game">ENTER THE FALLEN VALLEY</button>
+              <small>Direct-browser recovery launcher</small>
+            </section>
+          </div>`;
+        document.getElementById('boot-game')?.addEventListener('click', function () {
+          showError('The title screen is working, but the compiled game runtime is not present on this raw branch. Deploy the GitHub Pages production build or run npm run build before serving locally.');
+        });
+      }
+
+      window.addEventListener('error', function (event) {
+        showError(String((event.error && event.error.stack) || event.message || 'Unknown startup error'));
+      });
+      window.addEventListener('unhandledrejection', function (event) {
+        const reason = event.reason;
+        showError(String((reason && reason.stack) || reason || 'Unhandled startup rejection'));
+      });
+
+      if (status) status.textContent = 'CHECKING GAME RUNTIME...';
+      fetch('./js/main.js', { method: 'HEAD', cache: 'no-store' })
+        .then(function (response) {
+          if (!response.ok) throw new Error('Compiled runtime not found');
+          const map = document.createElement('script');
+          map.type = 'importmap';
+          map.textContent = JSON.stringify({ imports: { playcanvas: './vendor/playcanvas/playcanvas.mjs' } });
+          document.head.appendChild(map);
+          const moduleScript = document.createElement('script');
+          moduleScript.type = 'module';
+          moduleScript.src = './js/main.js';
+          moduleScript.onerror = function () { showError('Compiled SafeHaven runtime failed to load. Check browser console and deployment files.'); };
+          document.body.appendChild(moduleScript);
+        })
+        .catch(showFallbackTitle);
+    })();
   </script>
 </body>
 </html>
