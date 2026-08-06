@@ -1,1 +1,52 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/><meta name="theme-color" content="#09070b"/><title>SafeHaven — The Fallen Valley</title><link rel="stylesheet" href="/styles/global.css"></head><body><canvas id="game-canvas"></canvas><div id="app-ui"></div><div id="fatal-error" hidden></div><script type="module" src="/src/main.ts"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#09070b" />
+  <title>SafeHaven — The Fallen Valley</title>
+  <link rel="stylesheet" href="./styles/global.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "playcanvas": "./vendor/playcanvas/playcanvas.mjs"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="boot-shell" role="status" aria-live="polite">
+    <div class="boot-shell__inner">
+      <div class="boot-shell__kicker">THE FALLEN VALLEY</div>
+      <h1>SAFEHAVEN</h1>
+      <p id="boot-status">INITIALIZING...</p>
+      <pre id="boot-diagnostics" hidden></pre>
+    </div>
+  </div>
+  <canvas id="game-canvas"></canvas>
+  <div id="app-ui"></div>
+  <div id="fatal-error" hidden></div>
+  <script type="module" src="./js/main.js"></script>
+  <script>
+    window.addEventListener('error', function (event) {
+      const shell = document.getElementById('boot-shell');
+      const status = document.getElementById('boot-status');
+      const diagnostics = document.getElementById('boot-diagnostics');
+      if (!shell || shell.hidden) return;
+      status.textContent = 'SAFEHAVEN FAILED TO INITIALIZE';
+      diagnostics.hidden = false;
+      diagnostics.textContent = String(event.error && event.error.stack || event.message || 'Unknown startup error');
+    });
+    window.addEventListener('unhandledrejection', function (event) {
+      const shell = document.getElementById('boot-shell');
+      const status = document.getElementById('boot-status');
+      const diagnostics = document.getElementById('boot-diagnostics');
+      if (!shell || shell.hidden) return;
+      status.textContent = 'SAFEHAVEN FAILED TO INITIALIZE';
+      diagnostics.hidden = false;
+      const reason = event.reason;
+      diagnostics.textContent = String(reason && reason.stack || reason || 'Unhandled startup rejection');
+    });
+  </script>
+</body>
+</html>
