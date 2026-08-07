@@ -9,6 +9,12 @@
 </head>
 <body>
 <div id="boot-error" hidden></div>
+<script>
+window.onerror=(message,source,line,column,error)=>{
+  const box=document.getElementById('boot-error'); if(!box)return false; box.hidden=false;
+  box.textContent='SAFEHAVEN FAILED TO START\n\n'+(error?.stack||message||'Unknown error'); return false;
+};
+</script>
 <div id="game-shell">
   <canvas id="game" width="960" height="540" aria-label="SafeHaven game canvas"></canvas>
   <div id="touch" aria-label="Touch controls">
@@ -24,11 +30,5 @@
 <script src="src/world.js"></script>
 <script src="src/ui.js"></script>
 <script src="src/game.js"></script>
-<script>
-window.addEventListener('error', e => {
-  const box=document.getElementById('boot-error'); box.hidden=false;
-  box.textContent='SAFEHAVEN FAILED TO START\n\n'+(e.error?.stack||e.message||'Unknown error');
-});
-</script>
 </body>
 </html>
