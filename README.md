@@ -1,27 +1,34 @@
-# SafeHaven
+# SafeHaven — Browser JRPG Foundation
 
-**SafeHaven v0.1.0 — The Fallen Valley** is an original gothic 3D RTS vertical slice built for the browser with TypeScript, Vite and the standalone PlayCanvas Engine.
+A dependency-free HTML5/Canvas browser JRPG inspired by the pacing and systems philosophy of 16-bit console RPGs, using original characters, locations, enemies and terminology.
 
-## Run
+## Play
+Open `index.html` directly in a modern browser, or serve the repository as a static site. No Vite or npm build is required.
 
-```bash
-npm install
-npm run dev
-```
+### Controls
+- Move: Arrow keys / WASD
+- Confirm / interact: Enter / Z
+- Cancel: Escape / X
+- Menu: M
+- Touch: on-screen D-pad, A, B and MENU
 
-Production build:
+## Milestone content
+- Title screen, new game, continue/load and visible boot error handling
+- Kael's home and interactive objects
+- Eldenbrook with NPCs, shops, inn and side quests
+- Eldenbrook Vale overworld and terrain encounters
+- Whisperwood Cave, treasure, healing spring, save crystal and Stoneback boss
+- Turn-based battles with Attack, Fire magic, Potion, Defend and Flee
+- XP, character levels, JP, job levels, gold and drops
+- Inventory, equipment, status, jobs, quests and bestiary menus
+- Persistent localStorage autosave + manual Slot 1 save
+- Desktop and touch controls
 
-```bash
-npm run build
-npm run preview
-```
+## Save data
+Save key: `safehaven.jrpg.v1`. Saves include map/position, player progression, inventory, equipment, gold, quests, flags, chest state, bestiary, settings and playtime.
 
-PlayCanvas 2.21 uses WebGPU when requested and supported, with WebGL2 fallback. The project explicitly requests WebGPU first and WebGL2 second.
+## Deployment
+All paths are relative. The project can be hosted from GitHub Pages, Cloudflare Pages or any static web host without a build step.
 
-## Current playable slice
-
-Deploy the construction wagon, create power/economy/production structures, train units, gather resources through physical hauling, fight Covenant units, damage the enemy production base, and destroy the Covenant Fortress. IndexedDB autosave/manual save support is included.
-
-This repository intentionally uses procedural primitive placeholder models in v0.1.0. They are mechanically representative, not final art.
-
-See `PROJECT_STATE.md`, `ARCHITECTURE.md`, `GAME_DESIGN.md`, and `CONTROLS.md`.
+## Known limitations
+This is the first playable foundation, not the full 30–50 hour campaign. Party members beyond Kael, job switching, additional spell schools, multiple save-slot UI selection, richer art/audio assets and later continents are expansion work.
