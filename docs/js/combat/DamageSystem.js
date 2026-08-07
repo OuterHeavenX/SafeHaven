@@ -1,0 +1,3 @@
+const M = { BLADE: { LIGHT: 1.1, ARMORED: .65, STRUCTURE: .35, SUPERNATURAL: .7 }, PROJECTILE: { LIGHT: 1, ARMORED: .65, STRUCTURE: .45, SUPERNATURAL: .8 }, SIEGE: { LIGHT: .7, ARMORED: 1.15, STRUCTURE: 1.7, SUPERNATURAL: .8 }, HOLY: { LIGHT: .9, ARMORED: .8, STRUCTURE: .65, SUPERNATURAL: 1.8 }, ARCANE: { LIGHT: 1.1, ARMORED: .85, STRUCTURE: .7, SUPERNATURAL: 1.15 } };
+export const damageAgainst = (d, t, a) => d * M[t][a];
+//# sourceMappingURL=DamageSystem.js.map

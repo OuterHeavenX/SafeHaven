@@ -1,0 +1,100 @@
+import { FixedStepLoop } from '../core/FixedStepLoop.js';
+import { createWorld } from '../world/WorldFactory.js';
+import { Simulation } from '../simulation/Simulation.js';
+import { CommandSystem } from '../commands/CommandSystem.js';
+import { SaveManager } from '../persistence/SaveManager.js';
+import { PlayCanvasView } from '../engine/PlayCanvasView.js';
+import { InputManager } from '../input/InputManager.js';
+import { UI } from '../ui/UI.js';
+import { TutorialManager } from '../tutorial/TutorialManager.js';
+export class GameApp {
+    canvas;
+    state = createWorld();
+    sim = new Simulation(this.state);
+    cmd = new CommandSystem(this.state);
+    save = new SaveManager();
+    loop = new FixedStepLoop(1 / 20);
+    view;
+    input;
+    ui;
+    tutorial = new TutorialManager();
+    paused = true;
+    running = false;
+    buildKind;
+    autosaveClock = 0;
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.view = new PlayCanvasView(canvas);
+        this.ui = new UI({ newGame: () => this.newGame(), continueGame: () => this.load('autosave'), save: s => this.saveSlot(s), load: s => this.load(s), deploy: () => this.deploy(), build: k => this.beginBuild(k), queue: k => this.queue(k), stop: () => this.stop(), attackMove: () => this.input.setAttackMove(), repair: () => this.repair(), sell: () => this.sell(), capture: () => this.capture(), pause: () => this.pause(), resume: () => this.resume() });
+    }
+    async init() { await this.view.init(); this.input = new InputManager(this.canvas, this.view, () => this.state, (ids, p, a) => this.handleMove(ids, p, a), (ids, id) => this.cmd.attack(ids, id), ids => { this.view.setSelection(ids); this.redraw(); }); this.ui.title(await this.save.hasAny()); this.running = true; this.frame(performance.now()); }
+    frame = (last) => { if (!this.running)
+        return; requestAnimationFrame(now => { const dt = Math.min(.1, (now - last) / 1000); if (!this.paused) {
+        this.loop.update(dt, d => { this.sim.tick(d); this.tutorial.update(this.state, m => this.ui.notify(m)); this.autosaveClock += d; if (this.autosaveClock >= 60) {
+            this.autosaveClock = 0;
+            void this.save.autosave(this.state);
+        } });
+        this.view.render(this.state);
+        this.redraw();
+    } this.frame(now); }); };
+    redraw() { if (!this.paused || this.state.victory || this.state.defeat)
+        this.ui.game(this.state, this.input?.selection ?? []); }
+    newGame() { this.state = createWorld(); this.sim = new Simulation(this.state); this.cmd = new CommandSystem(this.state); this.input?.clear(); this.paused = false; this.view.focus({ x: -20, y: -18 }); this.ui.notify('Welcome to the Fallen Valley.'); }
+    async load(slot) { try {
+        const s = await this.save.load(slot);
+        if (!s) {
+            this.ui.notify('No save found.');
+            return;
+        }
+        this.state = s;
+        this.sim = new Simulation(this.state);
+        this.cmd = new CommandSystem(this.state);
+        this.input.clear();
+        this.paused = false;
+        this.ui.notify(`Loaded ${slot}.`);
+    }
+    catch (e) {
+        this.ui.notify(`Load failed: ${e instanceof Error ? e.message : String(e)}`);
+    } }
+    async saveSlot(slot) { await this.save.save(slot, this.state); this.ui.notify(`Saved to ${slot}.`); if (this.state.victory) {
+        this.paused = true;
+        this.ui.title(true);
+    } }
+    pause() { this.paused = true; this.ui.pause(); }
+    resume() { this.paused = false; this.redraw(); }
+    deploy() { const id = this.input.selection[0]; if (id && this.cmd.deployWagon(id)) {
+        this.input.clear();
+        this.ui.notify('Haven Keep deployment initiated.');
+    } }
+    beginBuild(k) { this.buildKind = k; this.ui.notify(`Placement armed: ${BUILDING_DEFS_NAME(k)} — tap open ground.`); }
+    handleMove(ids, p, a) { if (this.buildKind) {
+        const r = this.cmd.build(this.buildKind, p);
+        this.ui.notify(r.ok ? `${BUILDING_DEFS_NAME(this.buildKind)} construction started.` : r.reason ?? 'Invalid placement');
+        if (r.ok)
+            this.buildKind = undefined;
+        return;
+    } this.cmd.move(ids, p, a); }
+    selectedBuilding() { const id = this.input.selection[0]; return this.state.buildings.find(b => b.id === id); }
+    queue(k) { const b = this.selectedBuilding(); if (b && this.cmd.queue(b.id, k))
+        this.ui.notify('Unit added to production queue.');
+    else
+        this.ui.notify('Cannot train that unit here or insufficient resources.'); }
+    stop() { this.cmd.stop(this.input.selection); }
+    repair() { const b = this.selectedBuilding(); if (b)
+        this.cmd.repair(b.id); }
+    sell() { const b = this.selectedBuilding(); if (b) {
+        this.cmd.sell(b.id);
+        this.input.clear();
+    } }
+    capture() { const u = this.state.units.find(x => x.id === this.input.selection[0] && x.kind === 'inquisitor'); if (!u) {
+        this.ui.notify('Select an Inquisitor first.');
+        return;
+    } const b = this.state.buildings.filter(x => x.alive && x.faction !== 'haven').sort((a, c) => Math.hypot(a.pos.x - u.pos.x, a.pos.y - u.pos.y) - Math.hypot(c.pos.x - u.pos.x, c.pos.y - u.pos.y))[0]; if (b && Math.hypot(b.pos.x - u.pos.x, b.pos.y - u.pos.y) < 2.5) {
+        this.cmd.capture(u.id, b.id);
+        this.ui.notify('Structure captured.');
+    }
+    else
+        this.ui.notify('Move the Inquisitor beside a capturable structure.'); }
+}
+const BUILDING_DEFS_NAME = (k) => k.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase());
+//# sourceMappingURL=GameApp.js.map

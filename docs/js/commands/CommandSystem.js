@@ -1,0 +1,42 @@
+import { BUILDING_DEFS } from '../data/buildings';
+import { UNIT_DEFS } from '../data/units';
+import { makeBuilding } from '../world/WorldFactory';
+export class CommandSystem {
+    s;
+    constructor(s) {
+        this.s = s;
+    }
+    move(ids, p, attackMove = false) { const us = this.s.units.filter(u => ids.includes(u.id) && u.faction === 'haven'); const cols = Math.ceil(Math.sqrt(us.length)); us.forEach((u, i) => u.order = { type: attackMove ? 'attackMove' : 'move', target: { x: p.x + (i % cols - cols / 2) * 1.1, y: p.y + (Math.floor(i / cols) - cols / 2) * 1.1 } }); }
+    attack(ids, targetId) { for (const u of this.s.units)
+        if (ids.includes(u.id) && u.faction === 'haven')
+            u.order = { type: 'attack', targetId }; }
+    stop(ids) { for (const u of this.s.units)
+        if (ids.includes(u.id))
+            u.order = { type: 'idle' }; }
+    gather(id, depositId) { const u = this.s.units.find(x => x.id === id); const d = this.s.deposits.find(x => x.id === depositId); if (u && d && ((u.kind === 'gatherer' && d.kind === 'gold') || (u.kind === 'alchemist' && d.kind === 'essence')))
+        u.order = { type: 'gather', targetId: depositId }; }
+    deployWagon(id) { const u = this.s.units.find(x => x.id === id && x.kind === 'wagon' && x.faction === 'haven'); if (!u)
+        return false; u.alive = false; this.s.buildings.push(makeBuilding('havenKeep', 'haven', u.pos.x, u.pos.y, .05)); return true; }
+    build(kind, p) { const d = BUILDING_DEFS[kind]; if (this.s.resources.gold < d.costGold || this.s.resources.essence < d.costEssence)
+        return { ok: false, reason: 'Insufficient resources' }; for (const req of d.prerequisites)
+        if (!this.s.buildings.some(b => b.alive && b.faction === 'haven' && b.kind === req && b.construction >= 1))
+            return { ok: false, reason: `Requires ${BUILDING_DEFS[req].name}` }; const influence = this.s.buildings.some(b => b.alive && b.faction === 'haven' && b.construction >= 1 && Math.hypot(b.pos.x - p.x, b.pos.y - p.y) < 18); if (!influence)
+        return { ok: false, reason: 'Outside construction influence' }; if (this.s.buildings.some(b => b.alive && Math.hypot(b.pos.x - p.x, b.pos.y - p.y) < d.radius + 2))
+        return { ok: false, reason: 'Placement obstructed' }; this.s.resources.gold -= d.costGold; this.s.resources.essence -= d.costEssence; this.s.buildings.push(makeBuilding(kind, 'haven', p.x, p.y, .05)); return { ok: true }; }
+    queue(buildingId, kind) { const b = this.s.buildings.find(x => x.id === buildingId && x.faction === 'haven' && x.alive); if (!b)
+        return false; const d = UNIT_DEFS[kind]; if (this.s.resources.gold < d.costGold || this.s.resources.essence < d.costEssence)
+        return false; const valid = (b.kind === 'barracks' && ['warden', 'crossbowman', 'exorcist', 'inquisitor'].includes(kind)) || (b.kind === 'ironFoundry' && ['ironWagon', 'sanctifiedRam'].includes(kind)) || (b.kind === 'goldRefinery' && kind === 'gatherer') || (b.kind === 'essenceSanctum' && kind === 'alchemist'); if (!valid)
+        return false; this.s.resources.gold -= d.costGold; this.s.resources.essence -= d.costEssence; b.queue.push({ kind, progress: 0, total: d.trainTime, paidGold: d.costGold, paidEssence: d.costEssence }); return true; }
+    cancel(buildingId, index = 0) { const b = this.s.buildings.find(x => x.id === buildingId); const q = b?.queue[index]; if (!b || !q)
+        return; this.s.resources.gold += Math.floor(q.paidGold * .75); this.s.resources.essence += Math.floor(q.paidEssence * .75); b.queue.splice(index, 1); }
+    repair(id) { const b = this.s.buildings.find(x => x.id === id && x.faction === 'haven'); if (!b)
+        return; const max = BUILDING_DEFS[b.kind].maxHealth; const missing = max - b.hp; const cost = Math.ceil(missing * .15); const pay = Math.min(cost, this.s.resources.gold); if (pay <= 0)
+        return; this.s.resources.gold -= pay; b.hp = Math.min(max, b.hp + pay / .15); }
+    sell(id) { const b = this.s.buildings.find(x => x.id === id && x.faction === 'haven'); if (!b || b.kind === 'havenKeep')
+        return; const d = BUILDING_DEFS[b.kind]; this.s.resources.gold += Math.floor(d.costGold * .5); this.s.resources.essence += Math.floor(d.costEssence * .5); b.alive = false; }
+    capture(unitId, buildingId) { const u = this.s.units.find(x => x.id === unitId && x.kind === 'inquisitor'); const b = this.s.buildings.find(x => x.id === buildingId && (x.faction === 'neutral' || x.faction === 'covenant')); if (u && b && Math.hypot(u.pos.x - b.pos.x, u.pos.y - b.pos.y) < 2.5)
+        b.faction = 'haven'; }
+    setRally(id, p) { const b = this.s.buildings.find(x => x.id === id); if (b)
+        b.rally = p; }
+}
+//# sourceMappingURL=CommandSystem.js.map

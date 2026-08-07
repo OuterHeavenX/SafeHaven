@@ -1,0 +1,170 @@
+import { UNIT_DEFS } from '../data/units';
+import { BUILDING_DEFS } from '../data/buildings';
+import { damageAgainst } from '../combat/DamageSystem';
+import { updatePower } from '../economy/PowerGrid';
+import { Random } from '../core/Random';
+import { SpatialIndex } from '../core/SpatialIndex';
+import { makeUnit, uid } from '../world/WorldFactory';
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const toward = (a, b, d) => { const l = dist(a, b) || 1; return { x: a.x + (b.x - a.x) / l * d, y: a.y + (b.y - a.y) / l * d }; };
+export class Simulation {
+    state;
+    rng;
+    index = new SpatialIndex(10);
+    aiClock = 0;
+    constructor(state) {
+        this.state = state;
+        this.rng = new Random(state.seed);
+    }
+    tick(dt) { if (this.state.victory || this.state.defeat)
+        return; this.state.elapsed += dt; this.index.rebuild(this.state.units); updatePower(this.state); this.updateConstruction(dt); this.updateProduction(dt); this.updateUnits(dt); this.updateProjectiles(dt); this.aiClock += dt; if (this.aiClock >= 2) {
+        this.aiClock = 0;
+        this.strategicAI();
+    } this.cleanup(); this.updateObjectives(); this.state.seed = this.rng.state; }
+    updateConstruction(dt) { for (const b of this.state.buildings)
+        if (b.alive && b.construction < 1) {
+            b.construction = Math.min(1, b.construction + dt / BUILDING_DEFS[b.kind].buildTime);
+            b.hp = BUILDING_DEFS[b.kind].maxHealth * Math.max(.15, b.construction);
+        } }
+    updateProduction(dt) { for (const b of this.state.buildings) {
+        if (!b.alive || b.construction < 1 || !b.powered || !b.queue.length)
+            continue;
+        const q = b.queue[0];
+        q.progress += dt;
+        if (q.progress >= q.total) {
+            const a = this.spawnFor(b, q.kind);
+            b.queue.shift();
+            if (b.rally)
+                a.order = { type: 'move', target: { ...b.rally } };
+        }
+    } }
+    spawnFor(b, k) { const u = makeUnit(k, b.faction, b.pos.x + 3 + this.rng.range(-1, 1), b.pos.y + this.rng.range(-2, 2)); this.state.units.push(u); return u; }
+    updateUnits(dt) { for (const u of this.state.units) {
+        if (!u.alive)
+            continue;
+        u.cooldown = Math.max(0, u.cooldown - dt);
+        const o = u.order;
+        if (o.type === 'move' || o.type === 'attackMove') {
+            if (o.type === 'attackMove') {
+                const e = this.nearestEnemy(u, UNIT_DEFS[u.kind].visionRadius);
+                if (e) {
+                    u.order = { type: 'attack', targetId: e.id };
+                    continue;
+                }
+            }
+            this.move(u, o.target, dt);
+            if (dist(u.pos, o.target) < .5)
+                u.order = { type: 'idle' };
+        }
+        else if (o.type === 'attack') {
+            const t = this.findTarget(o.targetId);
+            if (!t || !t.alive) {
+                u.order = { type: 'idle' };
+                continue;
+            }
+            const def = UNIT_DEFS[u.kind], w = def.weapon;
+            if (!w) {
+                u.order = { type: 'idle' };
+                continue;
+            }
+            if (dist(u.pos, t.pos) > w.range) {
+                this.move(u, t.pos, dt);
+            }
+            else if (u.cooldown <= 0) {
+                u.cooldown = w.cooldown * (u.rank === 2 ? .82 : u.rank === 1 ? .92 : 1);
+                if (w.projectileSpeed > 0)
+                    this.fireProjectile(u, t, w.damage, w.damageType, w.projectileSpeed);
+                else
+                    this.applyDamage(t, w.damage, w.damageType, u);
+            }
+        }
+        else if (o.type === 'gather')
+            this.gather(u, o.targetId, dt);
+        else if (o.type === 'return')
+            this.unload(u, o.targetId, dt);
+        else if (o.type === 'guard') {
+            const t = this.findTarget(o.targetId);
+            if (t) {
+                const e = this.nearestEnemy(u, 7);
+                if (e)
+                    u.order = { type: 'attack', targetId: e.id };
+                else if (dist(u.pos, t.pos) > 4)
+                    this.move(u, t.pos, dt);
+            }
+        }
+        else {
+            const e = this.nearestEnemy(u, UNIT_DEFS[u.kind].weapon?.range ?? 0);
+            if (e && UNIT_DEFS[u.kind].weapon)
+                u.order = { type: 'attack', targetId: e.id };
+        }
+    } }
+    move(u, p, dt) { const speed = UNIT_DEFS[u.kind].moveSpeed * dt; const n = toward(u.pos, p, Math.min(speed, dist(u.pos, p))); const friends = this.index.query(n, .75).filter(x => x.id !== u.id && x.faction === u.faction); if (friends.length) {
+        n.x += this.rng.range(-.12, .12);
+        n.y += this.rng.range(-.12, .12);
+    } u.pos = n; }
+    gather(u, id, dt) { const d = this.state.deposits.find(x => x.id === id); if (!d || d.remaining <= 0) {
+        u.order = { type: 'idle' };
+        return;
+    } if (dist(u.pos, d.pos) > 1.4) {
+        this.move(u, d.pos, dt);
+        return;
+    } const cap = 100; const take = Math.min(22 * dt, cap - u.carry.amount, d.remaining); u.carry = { kind: d.kind, amount: u.carry.amount + take }; d.remaining -= take; if (u.carry.amount >= cap - 1) {
+        const target = this.state.buildings.find(b => b.alive && b.faction === u.faction && ((d.kind === 'gold' && b.kind === 'goldRefinery') || (d.kind === 'essence' && b.kind === 'essenceSanctum')));
+        if (target)
+            u.order = { type: 'return', targetId: target.id };
+    } }
+    unload(u, id, dt) { const b = this.state.buildings.find(x => x.id === id); if (!b) {
+        u.order = { type: 'idle' };
+        return;
+    } if (dist(u.pos, b.pos) > 2.4) {
+        this.move(u, b.pos, dt);
+        return;
+    } if (u.carry.kind)
+        this.state.resources[u.carry.kind] += Math.round(u.carry.amount); const kind = u.carry.kind; u.carry = { kind: null, amount: 0 }; const d = this.state.deposits.filter(x => x.kind === kind && x.remaining > 0).sort((a, c) => dist(a.pos, u.pos) - dist(c.pos, u.pos))[0]; u.order = d ? { type: 'gather', targetId: d.id } : { type: 'idle' }; }
+    fireProjectile(u, t, damage, damageType, speed) { this.state.projectiles.push({ id: uid('p'), from: { ...u.pos }, pos: { ...u.pos }, targetId: t.id, speed, damage, damageType, faction: u.faction, alive: true }); }
+    updateProjectiles(dt) { for (const p of this.state.projectiles) {
+        if (!p.alive)
+            continue;
+        const t = this.findTarget(p.targetId);
+        if (!t || !t.alive) {
+            p.alive = false;
+            continue;
+        }
+        if (dist(p.pos, t.pos) < .5) {
+            this.applyDamage(t, p.damage, p.damageType);
+            p.alive = false;
+        }
+        else
+            p.pos = toward(p.pos, t.pos, Math.min(p.speed * dt, dist(p.pos, t.pos)));
+    } }
+    applyDamage(t, d, type, source) { const armor = 'kind' in t && this.isUnit(t) ? UNIT_DEFS[t.kind].armorType : 'STRUCTURE'; t.hp -= damageAgainst(d, type, armor); if (t.hp <= 0) {
+        t.hp = 0;
+        t.alive = false;
+        if (source) {
+            source.xp += 20;
+            if (source.xp >= 80 && source.rank < 2) {
+                source.rank = (source.rank + 1);
+                source.hp = Math.min(UNIT_DEFS[source.kind].maxHealth, source.hp + 35);
+            }
+        }
+    } }
+    isUnit(x) { return 'order' in x; }
+    findTarget(id) { return this.state.units.find(x => x.id === id) || this.state.buildings.find(x => x.id === id); }
+    nearestEnemy(u, r) { return this.index.query(u.pos, r).filter(x => x.faction !== u.faction && x.faction !== 'neutral').sort((a, b) => dist(a.pos, u.pos) - dist(b.pos, u.pos))[0]; }
+    strategicAI() { const base = this.state.buildings.find(b => b.alive && b.kind === 'covenantFortress'); if (!base)
+        return; const barracks = this.state.buildings.find(b => b.alive && b.kind === 'cryptBarracks'); const enemies = this.state.units.filter(u => u.alive && u.faction === 'covenant'); if (barracks && enemies.length < 18 && this.rng.next() < .65)
+        this.state.units.push(makeUnit(this.rng.next() < .55 ? 'thrall' : this.rng.next() < .75 ? 'cultist' : 'nightHound', 'covenant', barracks.pos.x + this.rng.range(-2, 2), barracks.pos.y + 3)); const attackers = enemies.filter(u => u.order.type === 'idle'); if (attackers.length >= 4 && this.rng.next() < .5) {
+        const econ = this.state.buildings.filter(b => b.alive && b.faction === 'haven').sort((a, b) => (a.kind === 'goldRefinery' ? -2 : 0) - (b.kind === 'goldRefinery' ? -2 : 0))[0];
+        if (econ)
+            for (const u of attackers.slice(0, 6))
+                u.order = { type: 'attackMove', target: { ...econ.pos } };
+    } }
+    cleanup() { this.state.units = this.state.units.filter(u => u.alive || u.hp > 0); this.state.projectiles = this.state.projectiles.filter(p => p.alive); }
+    updateObjectives() { const has = (k) => this.state.buildings.some(b => b.alive && b.faction === 'haven' && b.kind === k && b.construction >= 1); const set = (id, v) => { const o = this.state.objectives.find(x => x.id === id); if (o)
+        o.complete = v; }; set('establish', has('havenKeep')); set('gold', has('goldRefinery')); set('military', has('barracks')); set('essence', has('essenceSanctum')); set('watchtower', this.state.buildings.some(b => b.kind === 'abandonedWatchtower' && b.faction === 'haven')); set('shrines', !this.state.buildings.some(b => b.alive && b.kind === 'bloodShrine')); const fortress = this.state.buildings.find(b => b.kind === 'covenantFortress'); if (fortress && !fortress.alive) {
+        set('fortress', true);
+        this.state.victory = true;
+    } const keep = this.state.buildings.find(b => b.kind === 'havenKeep'); if (keep && !keep.alive)
+        this.state.defeat = true; }
+}
+//# sourceMappingURL=Simulation.js.map
