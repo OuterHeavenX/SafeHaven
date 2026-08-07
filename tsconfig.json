@@ -1,9 +1,21 @@
 {
   "compilerOptions": {
-    "target": "ES2022", "useDefineForClassFields": true, "module": "ESNext",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"], "moduleResolution": "Bundler",
-    "strict": true, "noUncheckedIndexedAccess": true, "noFallthroughCasesInSwitch": true,
-    "skipLibCheck": true, "resolveJsonModule": true, "noEmit": true,
-    "baseUrl": ".", "paths": {"@/*": ["src/*"]}
-  }, "include": ["src", "vite.config.ts"]
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "module": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "moduleResolution": "Node",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "rootDir": "src",
+    "outDir": "dist/js",
+    "sourceMap": true,
+    "declaration": false,
+    "noEmit": false,
+    "verbatimModuleSyntax": true
+  },
+  "include": ["src/**/*.ts"]
 }

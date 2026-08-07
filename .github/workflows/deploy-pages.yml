@@ -1,25 +1,28 @@
-name: Deploy SafeHaven to GitHub Pages
+name: Build SafeHaven static Pages files
 
 on:
   push:
-    branches: [main]
+    branches:
+      - agent/direct-browser-no-vite
+    paths-ignore:
+      - 'docs/**'
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages
+  group: safehaven-static-build
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-and-publish:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: agent/direct-browser-no-vite
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -32,21 +35,31 @@ jobs:
       - name: Build SafeHaven
         run: npm run build
 
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
+      - name: Verify production runtime
+        run: |
+          test -s dist/index.html
+          test -s dist/js/main.js
+          test -s dist/js/app/GameApp.js
+          test -s dist/vendor/playcanvas/playcanvas.mjs
+          grep -q "SAFEHAVEN" dist/index.html
+          grep -q "./app/GameApp.js" dist/js/main.js
+          test $(wc -c < dist/vendor/playcanvas/playcanvas.mjs) -gt 100000
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./dist
+      - name: Publish built files into docs
+        run: |
+          rm -rf docs
+          mkdir -p docs
+          cp -R dist/. docs/
+          touch docs/.nojekyll
 
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Commit generated static site
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs
+          if git diff --cached --quiet; then
+            echo "No generated changes to commit."
+            exit 0
+          fi
+          git commit -m "Publish compiled SafeHaven static site"
+          git push origin HEAD:agent/direct-browser-no-vite

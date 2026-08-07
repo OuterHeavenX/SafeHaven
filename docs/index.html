@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#09070b" />
   <title>SafeHaven — The Fallen Valley</title>
-  <link rel="stylesheet" href="./docs/styles/global.css" />
+  <link rel="stylesheet" href="./styles/global.css" />
   <script type="importmap">
   {
     "imports": {
-      "playcanvas": "./docs/vendor/playcanvas/playcanvas.mjs"
+      "playcanvas": "./vendor/playcanvas/playcanvas.mjs"
     }
   }
   </script>
@@ -26,7 +26,7 @@
   <canvas id="game-canvas"></canvas>
   <div id="app-ui"></div>
   <div id="fatal-error" hidden></div>
-  <script type="module" src="./docs/js/main.js"></script>
+  <script type="module" src="./js/main.js"></script>
   <script>
     window.addEventListener('error', function (event) {
       const shell = document.getElementById('boot-shell');

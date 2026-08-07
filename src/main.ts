@@ -1,30 +1,72 @@
 const rootElement = document.querySelector<HTMLDivElement>('#app-ui');
 const canvasElement = document.querySelector<HTMLCanvasElement>('#game-canvas');
 const fatal = document.querySelector<HTMLElement>('#fatal-error');
+const bootShell = document.querySelector<HTMLElement>('#boot-shell');
+const bootStatus = document.querySelector<HTMLElement>('#boot-status');
+const bootDiagnostics = document.querySelector<HTMLElement>('#boot-diagnostics');
 
 if (!rootElement || !canvasElement) {
   throw new Error('SafeHaven launcher could not find its required page elements.');
 }
 
-// Capture non-null references after the startup guard so strict TypeScript
-// can safely use them inside callbacks and async launch code.
 const root: HTMLDivElement = rootElement;
 const canvas: HTMLCanvasElement = canvasElement;
-
 canvas.style.visibility = 'hidden';
 
-function showLauncherError(error: unknown) {
+function setBootStage(stage: string) {
+  if (bootStatus) bootStatus.textContent = stage;
+}
+
+function finishBootShell() {
+  if (bootShell) bootShell.hidden = true;
+}
+
+function rendererDiagnostics() {
+  let webgl2 = false;
+  try {
+    const probe = document.createElement('canvas');
+    webgl2 = Boolean(probe.getContext('webgl2'));
+  } catch {
+    webgl2 = false;
+  }
+  return {
+    webgpu: 'gpu' in navigator,
+    webgl2,
+    userAgent: navigator.userAgent,
+  };
+}
+
+function showLauncherError(error: unknown, stage = 'UNKNOWN STARTUP STAGE') {
   console.error(error);
+  const message = error instanceof Error ? error.message : String(error);
+  const stack = error instanceof Error ? (error.stack ?? error.message) : String(error);
+  const diag = rendererDiagnostics();
+
+  if (bootShell) bootShell.hidden = false;
+  setBootStage('SAFEHAVEN FAILED TO INITIALIZE');
+  if (bootDiagnostics) {
+    bootDiagnostics.hidden = false;
+    bootDiagnostics.textContent = [
+      `Stage: ${stage}`,
+      `Error: ${message}`,
+      `WebGPU available: ${diag.webgpu ? 'yes' : 'no'}`,
+      `WebGL2 available: ${diag.webgl2 ? 'yes' : 'no'}`,
+      '',
+      stack,
+    ].join('\n');
+  }
+
   if (!fatal) return;
   fatal.hidden = false;
   fatal.innerHTML = `
     <h2>SafeHaven could not enter The Fallen Valley</h2>
-    <p>The title screen loaded correctly, but the 3D engine could not start.</p>
-    <pre>${escapeHtml(error instanceof Error ? (error.stack ?? error.message) : String(error))}</pre>
+    <p>The direct-browser launcher stayed alive and captured the failure instead of showing a blank page.</p>
+    <pre>${escapeHtml(stack)}</pre>
     <button id="return-title">RETURN TO TITLE</button>
   `;
   fatal.querySelector('#return-title')?.addEventListener('click', () => {
     fatal.hidden = true;
+    if (bootDiagnostics) bootDiagnostics.hidden = true;
     renderTitle();
   });
 }
@@ -36,6 +78,8 @@ function escapeHtml(value: string) {
 }
 
 function renderTitle() {
+  setBootStage('READY');
+  finishBootShell();
   canvas.style.visibility = 'hidden';
   root.innerHTML = `
     <div class="title-screen">
@@ -86,18 +130,26 @@ async function launch(mode: 'new' | 'continue') {
   renderLoading();
 
   try {
-    const { GameApp } = await import('./app/GameApp');
+    setBootStage('LOADING CORE SYSTEMS...');
+    const { GameApp } = await import('./app/GameApp.js');
+    setBootStage('INITIALIZING ENGINE...');
     const game = new GameApp(canvas);
     await game.init();
+    setBootStage('PREPARING THE FALLEN VALLEY...');
     canvas.style.visibility = 'visible';
     if (mode === 'new') game.newGame();
     else await game.load('autosave');
   } catch (error) {
     canvas.style.visibility = 'hidden';
-    showLauncherError(error);
+    showLauncherError(error, bootStatus?.textContent ?? 'GAME LAUNCH');
   } finally {
     launching = false;
   }
 }
 
-renderTitle();
+try {
+  setBootStage('LOADING CORE SYSTEMS...');
+  renderTitle();
+} catch (error) {
+  showLauncherError(error, 'TITLE SCREEN');
+}
