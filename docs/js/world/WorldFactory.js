@@ -1,5 +1,5 @@
-import { BUILDING_DEFS } from '../data/buildings';
-import { UNIT_DEFS } from '../data/units';
+import { BUILDING_DEFS } from '../data/buildings.js';
+import { UNIT_DEFS } from '../data/units.js';
 let id = 0;
 export const uid = (p = 'e') => `${p}_${++id}`;
 export function makeUnit(kind, faction, x, y) { return { id: uid('u'), kind, faction, pos: { x, y }, hp: UNIT_DEFS[kind].maxHealth, rank: 0, xp: 0, order: { type: 'idle' }, carry: { kind: null, amount: 0 }, cooldown: 0, alive: true }; }

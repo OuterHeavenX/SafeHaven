@@ -1,5 +1,5 @@
-import { BUILDING_DEFS } from '../data/buildings';
-import { UNIT_DEFS } from '../data/units';
+import { BUILDING_DEFS } from '../data/buildings.js';
+import { UNIT_DEFS } from '../data/units.js';
 export class UI {
     a;
     root = document.querySelector('#app-ui');

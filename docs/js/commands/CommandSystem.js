@@ -1,6 +1,6 @@
-import { BUILDING_DEFS } from '../data/buildings';
-import { UNIT_DEFS } from '../data/units';
-import { makeBuilding } from '../world/WorldFactory';
+import { BUILDING_DEFS } from '../data/buildings.js';
+import { UNIT_DEFS } from '../data/units.js';
+import { makeBuilding } from '../world/WorldFactory.js';
 export class CommandSystem {
     s;
     constructor(s) {

@@ -1,10 +1,10 @@
-import { UNIT_DEFS } from '../data/units';
-import { BUILDING_DEFS } from '../data/buildings';
-import { damageAgainst } from '../combat/DamageSystem';
-import { updatePower } from '../economy/PowerGrid';
-import { Random } from '../core/Random';
-import { SpatialIndex } from '../core/SpatialIndex';
-import { makeUnit, uid } from '../world/WorldFactory';
+import { UNIT_DEFS } from '../data/units.js';
+import { BUILDING_DEFS } from '../data/buildings.js';
+import { damageAgainst } from '../combat/DamageSystem.js';
+import { updatePower } from '../economy/PowerGrid.js';
+import { Random } from '../core/Random.js';
+import { SpatialIndex } from '../core/SpatialIndex.js';
+import { makeUnit, uid } from '../world/WorldFactory.js';
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const toward = (a, b, d) => { const l = dist(a, b) || 1; return { x: a.x + (b.x - a.x) / l * d, y: a.y + (b.y - a.y) / l * d }; };
 export class Simulation {
