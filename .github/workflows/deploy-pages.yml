@@ -37,12 +37,13 @@ jobs:
 
       - name: Verify production runtime
         run: |
-          test -f dist/index.html
-          test -f dist/js/main.js
-          test -f dist/js/app/GameApp.js
-          test -f dist/vendor/playcanvas/playcanvas.mjs
+          test -s dist/index.html
+          test -s dist/js/main.js
+          test -s dist/js/app/GameApp.js
+          test -s dist/vendor/playcanvas/playcanvas.mjs
           grep -q "SAFEHAVEN" dist/index.html
           grep -q "./app/GameApp.js" dist/js/main.js
+          test $(wc -c < dist/vendor/playcanvas/playcanvas.mjs) -gt 100000
 
       - name: Publish built files into docs
         run: |
